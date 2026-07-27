@@ -5,12 +5,12 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import datetime
 
-def walk_forward(rows, step_size, train_size, test_size) -> list[tuple]:
+def walk_forward(rows: int, step_size: int, train_size: int, test_size: int) -> list[tuple]:
     start = 0 # we start at index 0
     return_list = [] # initialize an empty list that we're going to append to
 
     while (start + train_size + test_size) <= rows:
-        train_index = np.arange(start, start+train_size) # train from start to train limit
+        train_index = np.arange(0, start+train_size) # train from start to train limit
         test_index = np.arange(start+train_size, start+train_size+test_size) # test form end of train to end of test size
 
         return_list.append((train_index, test_index)) # list of tuples that have train and test index
@@ -152,14 +152,17 @@ def main():
     feature_importance = []
 
     fold_list = walk_forward(rows=len(features_df), train_size=900, test_size=50, step_size=50)
-    for train_index, test_index in fold_list:
+
+
+    bst = XGBClassifier(n_estimators=30, max_depth=2, learning_rate=0.1, subsample=0.7, colsample_bytree=0.7, reg_alpha=1, reg_lambda=1) # create the model
+    
+    for train_index, test_index in fold_list: # add onto the training data
         # make the x/y_train/test dataframes
         x_train = features_df.iloc[train_index]
         x_test = features_df.iloc[test_index]
         y_train = label_df.iloc[train_index]
         y_test = label_df.iloc[test_index]
 
-        bst = XGBClassifier(n_estimators=30, max_depth=2, learning_rate=0.1, subsample=0.7, colsample_bytree=0.7, reg_alpha=1, reg_lambda=1) # create the model
         bst.fit(x_train, y_train) # fit the training data
         predictions = bst.predict(x_test) # get the predictions
         feature_importance.append(bst.feature_importances_)
@@ -184,7 +187,7 @@ def main():
     feature_importance = pd.DataFrame(feature_importance)
     array = feature_importance.mean(axis=0).to_numpy()
     series = pd.Series(array, index=x_train.columns).sort_values(ascending=False)
-    print(series)
+    # print(series)
 
     print(f"accuracy list \n{accuracy_list} \n")
     train_accuracy_list = [round(item, 2) for item in train_accuracy_list]
