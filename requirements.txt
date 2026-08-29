@@ -1,3 +1,6 @@
 yfinance
 xgboost
 scikit-learn
+torch
+pandas
+numpy
