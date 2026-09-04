@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 import pandas as pd
 import yfinance as yf
 import numpy as np
@@ -129,7 +130,7 @@ def label(df: pd.DataFrame, horizon: int, threshold: float) -> pd.DataFrame:
     new_df['Label'] = new_df['Label'].astype(int) # convert it to int after dropping nans because nans to int conversion throws runtime error
     return new_df
 
-def init() -> tuple[pd.DataFrame, pd.DataFrame]: 
+def init() -> tuple[pd.Series[Any], pd.DataFrame]: 
     ticker = 'AAPL'
     start_date = '2020-01-01'
     end_date = '2026-07-17'
@@ -139,4 +140,4 @@ def init() -> tuple[pd.DataFrame, pd.DataFrame]:
     label_df = df['Label']
     features_df = df.drop(columns=['Label', 'Difference', 'Close Tomorrow', 'pos', 'Close', 'Open', 'High', 'Low', 'Dividends', 'Stock Splits', 'Upper Band', 'Lower Band', '52wkHigh', '52wkLow', 'ATR', ]) # drop a bunch of columns that may contribute to overfitting or aren't useful in this case
 
-    return (label_df, features_df) # type: ignore
+    return (label_df, features_df) 
