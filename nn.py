@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import math
+from scipy.stats import pearsonr
+
 
 def initialize_df(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
 
@@ -149,7 +151,6 @@ class DirectionMLP(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
 def neural() -> pd.DataFrame: 
     ticker = 'AAPL'
     start_date = '2020-01-01'
@@ -160,11 +161,13 @@ def neural() -> pd.DataFrame:
     label_df = df['Label']
     features_df = df.drop(columns=['Label', 'Difference', 'Close Tomorrow', 'pos', 'Close', 'Open', 'High', 'Low', 'Dividends', 'Stock Splits', 'Upper Band', 'Lower Band', '52wkHigh', '52wkLow', 'ATR', ]) # drop a bunch of columns that may contribute to overfitting or aren't useful in this case
     
-    fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=50, step_size=50)
+    fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=10, step_size=50)
 
     nn_accuracy = []
     baseline_accuracy = []
     edge = []
+    test_majority_list = []
+    train_majority_list = []
 
     for train_index, test_index in fold_list: 
         # make the x/y_train/test dataframes
@@ -201,6 +204,10 @@ def neural() -> pd.DataFrame:
         best_val_loss = math.inf
         patience = 4
         patience_counter = 0
+
+        # print(f"train majority: {max(y_train.mean(), 1-y_train.mean()):.2f}, test majority: {max(y_test.mean(), 1-y_test.mean()):.2f}")
+        test_majority_list.append(max(y_test.mean(), 1-y_test.mean()))
+        train_majority_list.append(max(y_train.mean(), 1-y_train.mean()))
 
         max_epoch = 20
         for epoch in range(max_epoch): 
@@ -247,14 +254,18 @@ def neural() -> pd.DataFrame:
         {
             'accuracy' : nn_accuracy, 
             'baseline' : baseline_accuracy, 
-            'edge' : edge
+            'edge' : edge,
+            'majority_shift' : [test - train for test, train in zip(test_majority_list, train_majority_list)]
         }
     )
 
     return return_df
 
 def main(): 
-    neural()
+    df = neural()
+
+    corr, p_value = pearsonr(df['majority_shift'].astype(float), df['edge'].astype(float))
+    print(f"correlation: {corr:.3f}, p-value: {p_value:.3f}")
 
 if __name__ == "__main__":
     main()
