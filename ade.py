@@ -1,7 +1,8 @@
-import random
 import numpy as np
+import pandas as pd
 import math
 import matplotlib.pyplot as plt
+from data_init import init, walk_forward
 
 """
     y = Signal array; DataFrame, Array, etc. 
@@ -69,6 +70,11 @@ def main():
     plt.legend()
     plt.show()
 
+    df = init()
+    label_df = df[0]
+    features_df = df[1]
+    
+    fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=10, step_size=50)
 
 if __name__ == "__main__":
     main()
