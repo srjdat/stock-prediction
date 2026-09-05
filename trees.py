@@ -34,6 +34,7 @@ def trees() -> pd.DataFrame:
 
         bst.fit(x_train, y_train) # fit the training data
         predictions = bst.predict(x_test) # get the predictions
+        print(predictions)
         feature_importance.append(bst.feature_importances_)
 
         # predict based on the training data

@@ -1,8 +1,11 @@
+import datetime
+
 import numpy as np
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
 from data_init import init, walk_forward
+import yfinance as yf
 
 """
     y = Signal array; DataFrame, Array, etc. 
@@ -24,7 +27,7 @@ def ade_derivative(y, k, N_ADE) -> float:
     summation: float = 0.0
     for K in range(1, N_ADE+2): 
         a_k = .5 if K == 1 or K == N_ADE+1 else 1
-        summation += a_k * (N_ADE-2*K) * y[k-K]
+        summation += a_k * (N_ADE-2*K) * y.iloc[k-K]
 
     a_1k: float = scaling_factor * summation
 
@@ -40,11 +43,7 @@ def ade_derivative(y, k, N_ADE) -> float:
 """
 def ade_forecast(y, k, N_ADE, delta_k) -> float: 
     a_1k = ade_derivative(y=y, k=k, N_ADE=N_ADE)
-    # print(k)
-    # print(y[k])
-    # print(a_1k)
-    # print()
-    return y[k] + a_1k * delta_k
+    return y.iloc[k] + a_1k * delta_k
 
 def main(): 
     t = np.arange(1, 301)
@@ -55,26 +54,45 @@ def main():
     noisy_signal = trend + noise
 
     # window size for ade. got from: Cui, T., Xu, G., Zhou, A., Chen, J., Cook, A., & Wang, Z. (2026). APSO-enhanced algebraic derivative estimation approach for real-time traffic flow prediction on critical road sections during wildfire evacuation. Transportmetrica B: Transport Dynamics, 14(1). https://doi.org/10.1080/21680566.2025.2612243
+    # N_ADE = 64
+    # delta_k = 1 # no real reasoning behind this, will check and compare multiple delta_k's to find best
+    # ade_preds = []
+    # ade_preds_time = []
+    # for k in range(N_ADE + 1, len(noisy_signal) - delta_k):
+    #     forecast = ade_forecast(y=noisy_signal, k=k, N_ADE=N_ADE, delta_k=delta_k)
+    #     ade_preds.append(forecast)
+    #     ade_preds_time.append(t[k] + delta_k)
+
+    # plt.plot(t, noisy_signal, label='Noisy signal', alpha=0.6)
+    # # plt.plot(t, trend, label='True trend', linewidth=2)
+    # plt.plot(ade_preds_time, ade_preds, label='ADE Prediction', linewidth=2)
+    # plt.legend()
+    # plt.show()
+
+    # df = init()
+    # label_df = df[0]
+    # features_df = df[1]
+
+    df = pd.DataFrame(yf.Ticker(ticker='AAPL').history(start='2024-01-01', end='2026-09-4'))
+    
     N_ADE = 64
-    delta_k = 1 # no real reasoning behind this, will check and compare multiple delta_k's to find best
+    delta_k = 1 # how many days to predict ahead of time 
     ade_preds = []
     ade_preds_time = []
-    for k in range(N_ADE + 1, len(noisy_signal) - delta_k):
-        forecast = ade_forecast(y=noisy_signal, k=k, N_ADE=N_ADE, delta_k=delta_k)
+    true_signal = []
+    for k in range(N_ADE + 1, len(df) - delta_k): 
+        forecast = ade_forecast(y=df['Close'], k=k, N_ADE=N_ADE, delta_k=delta_k)
         ade_preds.append(forecast)
-        ade_preds_time.append(t[k] + delta_k)
+        ade_preds_time.append(df.index[k + delta_k])
 
-    plt.plot(t, noisy_signal, label='Noisy signal', alpha=0.6)
-    # plt.plot(t, trend, label='True trend', linewidth=2)
-    plt.plot(ade_preds_time, ade_preds, label='ADE Prediction', linewidth=2)
+    
+
+    plt.plot(df.index, df['Close'], label='Close Price', alpha=.6)
+    plt.plot(ade_preds_time, ade_preds, label='ADE Prediction', linewidth=1)
     plt.legend()
     plt.show()
 
-    df = init()
-    label_df = df[0]
-    features_df = df[1]
-    
-    fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=10, step_size=50)
+
 
 if __name__ == "__main__":
     main()

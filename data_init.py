@@ -72,7 +72,7 @@ def initialize_df(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
 
     # average up and down
     average_up = change_up.rolling(14).mean()  # get average for up
-    average_down = change_down.rolling(14).mean().abs() #  get average for down
+    average_down = change_down.rolling(14).mean().abs() #  get average for down # type: ignore
     df['rsi'] = 100 * average_up / (average_up + average_down)
 
     # MACD
@@ -140,4 +140,4 @@ def init() -> tuple[pd.Series[Any], pd.DataFrame]:
     label_df = df['Label']
     features_df = df.drop(columns=['Label', 'Difference', 'Close Tomorrow', 'pos', 'Close', 'Open', 'High', 'Low', 'Dividends', 'Stock Splits', 'Upper Band', 'Lower Band', '52wkHigh', '52wkLow', 'ATR', ]) # drop a bunch of columns that may contribute to overfitting or aren't useful in this case
 
-    return (label_df, features_df) 
+    return (label_df, features_df) #type: ignore 
