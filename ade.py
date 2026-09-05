@@ -46,37 +46,21 @@ def ade_forecast(y, k, N_ADE, delta_k) -> float:
     return y.iloc[k] + a_1k * delta_k
 
 def main(): 
-    t = np.arange(1, 301)
-    # sin wave formula = A * sin(2pi * freq * time)
-    trend = 100 + 1 * np.sin(2 * math.pi * .02 * t)
-    noise = np.random.normal(0, .1, size=len(t))
+    # for testing purposes, not real or anything
+    # t = np.arange(1, 301)
+    # # sin wave formula = A * sin(2pi * freq * time)
+    # trend = 100 + 1 * np.sin(2 * math.pi * .02 * t)
+    # noise = np.random.normal(0, .1, size=len(t))
+    #
+    # noisy_signal = trend + noise
 
-    noisy_signal = trend + noise
-
-    # window size for ade. got from: Cui, T., Xu, G., Zhou, A., Chen, J., Cook, A., & Wang, Z. (2026). APSO-enhanced algebraic derivative estimation approach for real-time traffic flow prediction on critical road sections during wildfire evacuation. Transportmetrica B: Transport Dynamics, 14(1). https://doi.org/10.1080/21680566.2025.2612243
-    # N_ADE = 64
-    # delta_k = 1 # no real reasoning behind this, will check and compare multiple delta_k's to find best
-    # ade_preds = []
-    # ade_preds_time = []
-    # for k in range(N_ADE + 1, len(noisy_signal) - delta_k):
-    #     forecast = ade_forecast(y=noisy_signal, k=k, N_ADE=N_ADE, delta_k=delta_k)
-    #     ade_preds.append(forecast)
-    #     ade_preds_time.append(t[k] + delta_k)
-
-    # plt.plot(t, noisy_signal, label='Noisy signal', alpha=0.6)
-    # # plt.plot(t, trend, label='True trend', linewidth=2)
-    # plt.plot(ade_preds_time, ade_preds, label='ADE Prediction', linewidth=2)
-    # plt.legend()
-    # plt.show()
-
-    # df = init()
-    # label_df = df[0]
-    # features_df = df[1]
 
     df = pd.DataFrame(yf.Ticker(ticker='AAPL').history(start='2024-01-01', end='2026-09-4'))
     
-    N_ADE = 64
-    delta_k = 1 # how many days to predict ahead of time 
+    
+    # window size for ade got from: Cui, T., Xu, G., Zhou, A., Chen, J., Cook, A., & Wang, Z. (2026). APSO-enhanced algebraic derivative estimation approach for real-time traffic flow prediction on critical road sections during wildfire evacuation. Transportmetrica B: Transport Dynamics, 14(1). https://doi.org/10.1080/21680566.2025.2612243
+    N_ADE = 256
+    delta_k = 10 # how many days to predict ahead of time 
     ade_preds = []
     ade_preds_time = []
     true_signal = []
@@ -85,13 +69,28 @@ def main():
         ade_preds.append(forecast)
         ade_preds_time.append(df.index[k + delta_k])
 
+    df['ade_pred'] = pd.Series(ade_preds, index=ade_preds_time) # add it to dataframe
+    df['naive'] = df['Close'].shift(delta_k)
+    # plt.plot(df.index, df['Close'], label='Close Price', alpha=.6)
+    # plt.plot(df.index, df['ade_pred'], label='ADE Prediction', linewidth=1)
+    # plt.legend()
+    # plt.show()
+
+    # error measurement and correlation
+    # rsmc^2, rsmc, r^2
+    diff = (df['naive'] - df['ade_pred']).dropna()
+    rsme = np.sqrt((diff ** 2).mean())
+    rsme_2 = rsme ** 2
     
+    # find r^2
+    mean = df['naive'].mean()
+    ss_tot = np.sum((mean - df['naive'])**2)
+    ss_res = np.sum(diff**2) 
+    r_sqrd = 1 - ss_res/ss_tot
 
-    plt.plot(df.index, df['Close'], label='Close Price', alpha=.6)
-    plt.plot(ade_preds_time, ade_preds, label='ADE Prediction', linewidth=1)
-    plt.legend()
-    plt.show()
-
+    # mae
+    mae = abs(diff).mean()
+    print(f"rsme = {rsme} \n mae = {mae} \n r^2 = {r_sqrd}")
 
 
 if __name__ == "__main__":

@@ -140,4 +140,4 @@ def init() -> tuple[pd.Series[Any], pd.DataFrame]:
     label_df = df['Label']
     features_df = df.drop(columns=['Label', 'Difference', 'Close Tomorrow', 'pos', 'Close', 'Open', 'High', 'Low', 'Dividends', 'Stock Splits', 'Upper Band', 'Lower Band', '52wkHigh', '52wkLow', 'ATR', ]) # drop a bunch of columns that may contribute to overfitting or aren't useful in this case
 
-    return (label_df, features_df) #type: ignore 
+    return (label_df, features_df) # type: ignore [label_df]  
