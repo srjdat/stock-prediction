@@ -6,6 +6,7 @@ import math
 import matplotlib.pyplot as plt
 from data_init import init, walk_forward
 import yfinance as yf
+from sklearn.metrics import root_mean_squared_error, r2_score, mean_absolute_error
 
 """
     y = Signal array; DataFrame, Array, etc. 
@@ -70,27 +71,19 @@ def main():
         ade_preds_time.append(df.index[k + delta_k])
 
     df['ade_pred'] = pd.Series(ade_preds, index=ade_preds_time) # add it to dataframe
-    df['naive'] = df['Close'].shift(delta_k)
     # plt.plot(df.index, df['Close'], label='Close Price', alpha=.6)
     # plt.plot(df.index, df['ade_pred'], label='ADE Prediction', linewidth=1)
     # plt.legend()
     # plt.show()
 
     # error measurement and correlation
-    # rsmc^2, rsmc, r^2
-    diff = (df['naive'] - df['ade_pred']).dropna()
-    rsme = np.sqrt((diff ** 2).mean())
-    rsme_2 = rsme ** 2
-    
-    # find r^2
-    mean = df['naive'].mean()
-    ss_tot = np.sum((mean - df['naive'])**2)
-    ss_res = np.sum(diff**2) 
-    r_sqrd = 1 - ss_res/ss_tot
+    # rsmc, r^2, mae
+    df_cleaned = df.dropna(subset=['Close', 'ade_pred'])
+    rmse = root_mean_squared_error(y_true=df_cleaned['Close'], y_pred=df_cleaned['ade_pred'])
+    mae = mean_absolute_error(y_true=df_cleaned['Close'], y_pred=df_cleaned['ade_pred'])
+    r_sqrd = r2_score(y_true=df_cleaned['Close'], y_pred=df_cleaned['ade_pred'])
 
-    # mae
-    mae = abs(diff).mean()
-    print(f"rsme = {rsme} \n mae = {mae} \n r^2 = {r_sqrd}")
+    print(f"rsme = {rmse} \n mae = {mae} \n r^2 = {r_sqrd}")
 
 
 if __name__ == "__main__":
