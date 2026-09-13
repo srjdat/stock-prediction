@@ -1,5 +1,5 @@
 # Stock Trend Predictor
 
-Currently rebuilding this entire project for my research paper. 
+Currently rebuilding this entire project. 
 
 Comparing XGBoost, NNs, and ADE using public indicators and the raw price. 
