@@ -31,7 +31,7 @@ def neural() -> pd.DataFrame:
     label_df = df[0]
     features_df = df[1]
     
-    fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=10, step_size=50)
+    fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=50, step_size=50)
 
     nn_accuracy = []
     baseline_accuracy = []

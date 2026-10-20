@@ -130,14 +130,21 @@ def label(df: pd.DataFrame, horizon: int, threshold: float) -> pd.DataFrame:
     new_df['Label'] = new_df['Label'].astype(int) # convert it to int after dropping nans because nans to int conversion throws runtime error
     return new_df
 
-def init() -> tuple[pd.Series[Any], pd.DataFrame]: 
-    ticker = 'AAPL'
-    start_date = '2020-01-01'
+def init(ade: bool = False) -> pd.DataFrame[any] | tuple[pd.Series[Any], pd.DataFrame[Any]]: # type: ignore 
+    df = pd.DataFrame(yf.Ticker(ticker='NVDA').history(start='2024-01-01', end='2026-09-4'))
+    ticker = 'NVDA'
+    start_date = '2024-01-01'
     end_date = '2026-07-17'
     df = initialize_df(ticker=ticker, start_date=start_date, end_date=end_date)
-    df = label(df=df, horizon=5, threshold=.005)
-    df['pos'] = np.arange(len(df))
-    label_df = df['Label']
-    features_df = df.drop(columns=['Label', 'Difference', 'Close Tomorrow', 'pos', 'Close', 'Open', 'High', 'Low', 'Dividends', 'Stock Splits', 'Upper Band', 'Lower Band', '52wkHigh', '52wkLow', 'ATR', ]) # drop a bunch of columns that may contribute to overfitting or aren't useful in this case
+    
+    if ade: # if we are getting data for ade
+        return pd.DataFrame(df['Close'])
+    else: 
+        df = label(df=df, horizon=5, threshold=.005)
+        df['pos'] = np.arange(len(df))
+        label_df = df['Label']
+        features_df = df.drop(columns=['Label', 'Difference', 'Close Tomorrow', 'pos', 'Close', 'Open', 'High', 'Low', 'Dividends', 'Stock Splits', 'Upper Band', 'Lower Band', '52wkHigh', '52wkLow', 'ATR', ]) # drop a bunch of columns that may contribute to overfitting or aren't useful in this case
+        return (label_df, features_df) # type: ignore [label_df]  
+        
+        
 
-    return (label_df, features_df) # type: ignore [label_df]  

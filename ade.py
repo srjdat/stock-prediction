@@ -1,90 +1,130 @@
-import datetime
-
-import numpy as np
-import pandas as pd
-import math
 import matplotlib.pyplot as plt
-from data_init import init, walk_forward
+import pandas as pd
 import yfinance as yf
 from sklearn.metrics import root_mean_squared_error, r2_score, mean_absolute_error
+from data_init import init
 
-"""
-    y = Signal array; DataFrame, Array, etc. 
-    k = Current time step
-    N_ADE = Window size
-
-    a_1(k) = (6 / N_{ADE}^3) * Σ_{K=1}^{N_{ADE}+1} α_K * (N_{ADE} - 2K) * y[k - K]
-    Returns a_1k which is the first order derivative at step k. Tells us how fast the signal/trend is changing.
-
-    We have to guard against k being smaller than N_ADE as in the summation we subtract up to N_ADE + 1 from k. If we do not add this safeguard, Python won't tell us the issue since negative indexing is possible. 
-"""
 def ade_derivative(y, k, N_ADE) -> float:
+    """
+        Implement Equation (11) as printed in Cui et al. (2026).
 
-    if k < N_ADE + 1: 
+        y is a pandas Series, k is the current row, and N_ADE is the
+        window parameter for N_ADE + 1 past observations.
+        Observations are equally spaced in trading time (sample period 1).
+
+        a_1(k) = (6 / N_ADE**3) * sum(
+            alpha_K * (N_ADE - 2*K) * y[k - K]
+            for K in range(1, N_ADE + 2)
+        )
+        alpha_K is 0.5 for K=1 or K=N_ADE+1; otherwise it is 1.
+        This uses y[k - 1] through y[k - N_ADE - 1].
+        
+        The printed equation is reproduced without an indexing correction.
+        For constant prices C, it gives -12*C/N_ADE**2, not zero.
+    """
+
+    if N_ADE < 1:
+        raise ValueError('N_ADE must be a positive integer.')
+    if k < N_ADE + 1:
         return 0.0
+    if k >= len(y):
+        raise IndexError('The current row is outside the price series.')
 
     scaling_factor = (6/(N_ADE**3))
 
     summation: float = 0.0
-    for K in range(1, N_ADE+2): 
-        a_k = .5 if K == 1 or K == N_ADE+1 else 1
-        summation += a_k * (N_ADE-2*K) * y.iloc[k-K]
+    for K in range(1, N_ADE + 2):
+        alpha_K = .5 if K == 1 or K == N_ADE + 1 else 1
+        summation += alpha_K * (N_ADE - 2*K) * y.iloc[k - K]
 
     a_1k: float = scaling_factor * summation
 
     return a_1k
 
-"""
-    y = Signal array; DataFrame, Array, etc. 
-    k = Current time step
-    N_ADE = Window size  
-    delta_k = Steps into the future 
+def ade_forecast(y, k, N_ADE, delta_k) -> float:
 
-    Returns the forecasted value for [k + delta_k] (delta_k number of steps into the future).   
-"""
-def ade_forecast(y, k, N_ADE, delta_k) -> float: 
+    """
+        y = Signal array; DataFrame, Array, etc.
+        k = Current time step
+        N_ADE = Window size
+        delta_k = Steps into the future
+
+        Returns the forecasted value for [k + delta_k] (delta_k number of steps into the future).
+    """
+
     a_1k = ade_derivative(y=y, k=k, N_ADE=N_ADE)
     return y.iloc[k] + a_1k * delta_k
 
-def main(): 
-    # for testing purposes, not real or anything
-    # t = np.arange(1, 301)
-    # # sin wave formula = A * sin(2pi * freq * time)
-    # trend = 100 + 1 * np.sin(2 * math.pi * .02 * t)
-    # noise = np.random.normal(0, .1, size=len(t))
-    #
-    # noisy_signal = trend + noise
-
-
-    df = pd.DataFrame(yf.Ticker(ticker='AAPL').history(start='2024-01-01', end='2026-09-4'))
-    
-    
+def ade():
+    df: pd.DataFrame = init(ade = True) # type: ignore
     # window size for ade got from: Cui, T., Xu, G., Zhou, A., Chen, J., Cook, A., & Wang, Z. (2026). APSO-enhanced algebraic derivative estimation approach for real-time traffic flow prediction on critical road sections during wildfire evacuation. Transportmetrica B: Transport Dynamics, 14(1). https://doi.org/10.1080/21680566.2025.2612243
-    N_ADE = 256
-    delta_k = 10 # how many days to predict ahead of time 
-    ade_preds = []
-    ade_preds_time = []
-    true_signal = []
-    for k in range(N_ADE + 1, len(df) - delta_k): 
-        forecast = ade_forecast(y=df['Close'], k=k, N_ADE=N_ADE, delta_k=delta_k)
-        ade_preds.append(forecast)
-        ade_preds_time.append(df.index[k + delta_k])
+    N_ADE = [10, 20, 40, 65, 100] # how much data we use to predict
+    delta = 5 # how many trading days to predict ahead
+    prediction_columns = []
+    error_columns = []
+    comparison_start = max(N_ADE) + 1 + delta
 
-    df['ade_pred'] = pd.Series(ade_preds, index=ade_preds_time) # add it to dataframe
-    # plt.plot(df.index, df['Close'], label='Close Price', alpha=.6)
-    # plt.plot(df.index, df['ade_pred'], label='ADE Prediction', linewidth=1)
-    # plt.legend()
-    # plt.show()
+    # true_signal = [] made originally for testing won't be used as of right now
+    for n_ade in N_ADE:
+        ade_preds = []
+        ade_preds_time = []
+        for k in range(n_ade + 1, len(df) - delta):
+            forecast = ade_forecast(y=df['Close'], k=k, N_ADE=n_ade, delta_k=delta)
+            ade_preds.append(forecast)
+            ade_preds_time.append(df.index[k + delta])
 
-    # error measurement and correlation
-    # rsmc, r^2, mae
-    df_cleaned = df.dropna(subset=['Close', 'ade_pred'])
-    rmse = root_mean_squared_error(y_true=df_cleaned['Close'], y_pred=df_cleaned['ade_pred'])
-    mae = mean_absolute_error(y_true=df_cleaned['Close'], y_pred=df_cleaned['ade_pred'])
-    r_sqrd = r2_score(y_true=df_cleaned['Close'], y_pred=df_cleaned['ade_pred'])
+        # create the columns
+        prediction_column = f'ade_pred_{n_ade}'
+        error_column = f'ade_error_{n_ade}'
+        prediction_columns.append(prediction_column)
+        error_columns.append(error_column)
+        df[prediction_column] = pd.Series(ade_preds, index=ade_preds_time, dtype=float)
+        df[error_column] = df[prediction_column] - df['Close']
 
-    print(f"rsme = {rmse} \n mae = {mae} \n r^2 = {r_sqrd}")
+        # error measurement and correlation
+        # rsmc, r^2, mae
+        # Compare every window on the same target dates.
+        # df_cleaned = df from largest n_ade we use
+        df_cleaned = df.iloc[comparison_start:].dropna(subset=['Close', prediction_column])
+        if len(df_cleaned) < 2:
+            raise ValueError('Not enough price data to compare the ADE windows.')
 
+        rmse = root_mean_squared_error(y_true=df_cleaned['Close'], y_pred=df_cleaned[prediction_column])
+        mae = mean_absolute_error(y_true=df_cleaned['Close'], y_pred=df_cleaned[prediction_column])
+        r_sqrd = r2_score(y_true=df_cleaned['Close'], y_pred=df_cleaned[prediction_column])
+
+        print(f"Errors for N_ADE={n_ade}, horizon={delta} trading days")
+        print(f"RMSE = {rmse} \n MAE = {mae} \n R^2 = {r_sqrd}")
+
+    df_plot = df.iloc[comparison_start:].dropna(subset=['Close'] + prediction_columns)
+    fig, axes = plt.subplots(
+        2, 1, figsize=(12, 7), sharex=True,
+        gridspec_kw={'height_ratios': [2, 1]},
+        layout='constrained'
+    )
+
+    axes[0].plot(df_plot.index, df_plot['Close'], label='Actual Price', color='black', alpha=.7)
+    for n_ade, prediction_column, error_column in zip(N_ADE, prediction_columns, error_columns):
+        line, = axes[0].plot(df_plot.index, df_plot[prediction_column], label=f'N_ADE={n_ade}', linewidth=1)
+        axes[1].plot(df_plot.index, df_plot[error_column], label=f'N_ADE={n_ade}', color=line.get_color(), linewidth=1)
+    axes[0].set_title(f'NVDA: {delta}-Trading-Day ADE Forecasts')
+    axes[0].set_ylabel('Price ($)')
+    axes[0].legend()
+
+    axes[1].axhline(0, color='black', linestyle='--', linewidth=1)
+    axes[1].set_ylabel('Predicted - actual ($)')
+    axes[1].set_xlabel('Target Date')
+    axes[1].legend()
+
+    for ax in axes:
+        ax.grid(alpha=.25)
+
+    plt.show()
+    return df
+
+
+def main():
+    ade()
 
 if __name__ == "__main__":
     main()

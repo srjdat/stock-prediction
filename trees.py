@@ -6,25 +6,25 @@ from sklearn.metrics import accuracy_score
 import datetime
 from data_init import init, walk_forward
 
-
-
 def trees() -> pd.DataFrame:
 
     df = init()
     label_df = df[0]
     features_df = df[1]
-    
+
     accuracy_list = []
     train_accuracy_list = []
     baseline_accuracy = []
     edge_list = [] # basic model that does whatever most of the data segment does (if mostly it's going up go up, if mostly it's going down go down)
     feature_importance = []
+    test_majority_list = []
+    train_majority_list = []
 
     fold_list = walk_forward(rows=len(features_df), train_size=450, test_size=50, step_size=50)
 
 
-    bst = XGBClassifier(n_estimators=30, max_depth=2, learning_rate=0.1, subsample=0.7, colsample_bytree=0.7, reg_alpha=1, reg_lambda=1) # create the model
-    
+    bst = XGBClassifier(n_estimators=30, max_depth=2, learning_rate=0.1, subsample=0.7, colsample_bytree=0.7, reg_alpha=1, reg_lambda=1, random_state=np.random.randint(1, 100000)) # create the model
+
     for train_index, test_index in fold_list: # add onto the training data
         # make the x/y_train/test dataframes
         x_train = features_df.iloc[train_index]
@@ -34,7 +34,7 @@ def trees() -> pd.DataFrame:
 
         bst.fit(x_train, y_train) # fit the training data
         predictions = bst.predict(x_test) # get the predictions
-        print(predictions)
+        # print(predictions)
         feature_importance.append(bst.feature_importances_)
 
         # predict based on the training data
@@ -42,8 +42,11 @@ def trees() -> pd.DataFrame:
         accuracy = accuracy_score(y_pred=predictions_train, y_true=y_train)
         train_accuracy_list.append(accuracy)
 
+        test_majority_list.append(max(y_test.mean(), 1-y_test.mean()))
+        train_majority_list.append(max(y_train.mean(), 1-y_train.mean()))
+
         # baseline
-        preds_baseline = max(y_test.mean(), 1 - y_test.mean()) 
+        preds_baseline = max(y_test.mean(), 1 - y_test.mean())
         baseline_accuracy.append(round(preds_baseline, 2))
 
         # get accuracy score compared to y_test
@@ -69,15 +72,17 @@ def trees() -> pd.DataFrame:
 
     return_df = pd.DataFrame(
         {
-            'accuracy' : accuracy_list, 
-            'baseline' : baseline_accuracy, 
-            'edge' : edge_list
+            'accuracy' : accuracy_list,
+            'baseline' : baseline_accuracy,
+            'edge' : edge_list,
+            'majority_shift' : [test - train for test, train in zip(test_majority_list, train_majority_list)]
+
         }
     )
 
     return return_df
 
-def main(): 
+def main():
     trees()
 
 if __name__ == "__main__":
