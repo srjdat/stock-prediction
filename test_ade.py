@@ -12,7 +12,7 @@ import pandas as pd
 from ade import ade, ade_derivative, ade_forecast
 
 
-WINDOWS = [10, 20, 40, 65, 100]
+WINDOWS = [60, 100]
 
 
 class ADETests(unittest.TestCase):
@@ -54,6 +54,7 @@ class ADETests(unittest.TestCase):
             {'Close': 100 + np.arange(180) * .1 + np.sin(np.arange(180))},
             index=pd.bdate_range('2025-01-01', periods=180)
         )
+        comparison_start = max(WINDOWS) + 6
         try:
             with patch('ade.init', return_value=prices.copy()), \
                     patch('ade.plt.show') as show, \
@@ -67,12 +68,28 @@ class ADETests(unittest.TestCase):
                                        ade_forecast(prices['Close'], window + 1, window, 5))
                 pd.testing.assert_series_equal(result[f'ade_error_{window}'],
                                                prediction - result['Close'], check_names=False)
-                self.assertIn(f'Errors for N_ADE={window}', output.getvalue())
-            axes = plt.gcf().axes
-            self.assertEqual(len(axes), 2)
-            self.assertEqual(len(axes[0].lines), 6)
-            for line in axes[0].lines:
-                self.assertEqual(pd.Timestamp(line.get_xdata()[0]), prices.index[106]) # type: ignore
+                expected = result[f'ade_error_{window}'].iloc[comparison_start:].mean()
+                self.assertIn(f'Average error for N_ADE={window}: {expected}', output.getvalue().splitlines())
+
+            shifted_close = prices['Close'].shift(5)
+            shifted_error = shifted_close - prices['Close']
+            pd.testing.assert_series_equal(result['shifted_close'], shifted_close, check_names=False)
+            pd.testing.assert_series_equal(result['shifted_close_error'], shifted_error, check_names=False)
+            self.assertIn(f'Average shifted-close error: {shifted_error.mean()}', output.getvalue().splitlines())
+
+            self.assertEqual(len(plt.get_fignums()), 1)
+            price_ax, error_ax = plt.gcf().axes
+            comparison = result.iloc[comparison_start:]
+            labels = [f'N_ADE={window}' for window in WINDOWS] + ['Close shifted left 5 trading days']
+            self.assertEqual(price_ax.get_legend_handles_labels()[1], ['Actual Price'] + labels)
+            self.assertEqual(error_ax.get_legend_handles_labels()[1], labels)
+
+            price_columns = ['Close'] + [f'ade_pred_{window}' for window in WINDOWS] + ['shifted_close']
+            error_columns = [f'ade_error_{window}' for window in WINDOWS] + ['shifted_close_error']
+            for axis, columns in [(price_ax, price_columns), (error_ax, error_columns)]:
+                for line, column in zip(axis.lines, columns):
+                    np.testing.assert_array_equal(line.get_xdata(), comparison.index)
+                    np.testing.assert_array_equal(line.get_ydata(), comparison[column])
         finally:
             plt.close('all')
 

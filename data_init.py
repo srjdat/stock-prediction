@@ -133,8 +133,8 @@ def label(df: pd.DataFrame, horizon: int, threshold: float) -> pd.DataFrame:
 def init(ade: bool = False) -> pd.DataFrame[any] | tuple[pd.Series[Any], pd.DataFrame[Any]]: # type: ignore 
     df = pd.DataFrame(yf.Ticker(ticker='NVDA').history(start='2024-01-01', end='2026-09-4'))
     ticker = 'NVDA'
-    start_date = '2024-01-01'
-    end_date = '2026-07-17'
+    start_date = '2025-01-01'
+    end_date = '2026-11-21'
     df = initialize_df(ticker=ticker, start_date=start_date, end_date=end_date)
     
     if ade: # if we are getting data for ade
